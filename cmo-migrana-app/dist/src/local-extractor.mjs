@@ -109,7 +109,7 @@ const ruleComorbPsiq=binaryKeywordRule({variableId:'comorbilidades_psiquiatricas
 const ruleComorbNoPsiq=binaryKeywordRule({variableId:'comorbilidades_no_psiquiatricas',positiveOption:'si',negativeOption:'no',keywords:noPsiquiatricasKeywords,categoryLabel:'comorbilidad no psiquiátrica'});
 const ruleComorbCardio=binaryKeywordRule({variableId:'comorbilidades_cardiovasculares',positiveOption:'si',negativeOption:'no',keywords:cardiovascularesKeywords,categoryLabel:'comorbilidad cardiovascular'});
 const ruleInteracciones=binaryKeywordRule({variableId:'riesgo_interacciones',positiveOption:'si',negativeOption:'no',keywords:interaccionesKeywords,categoryLabel:'riesgo de interacciones'});
-const ruleEfectosAdversos=binaryKeywordRule({variableId:'efectos_adversos',positiveOption:'si',negativeOption:'no',keywords:efectosAdversosKeywords,categoryLabel:'efectos adversos'});
+const ruleEfectosAdversos=binaryKeywordRule({variableId:'efectos_adversos',positiveOption:'leves',negativeOption:'sin_relevantes',keywords:efectosAdversosKeywords,categoryLabel:'efectos adversos'});
 const ruleAltoRiesgo=binaryKeywordRule({variableId:'medicamentos_alto_riesgo',positiveOption:'si',negativeOption:null,keywords:altoRiesgoKeywords,categoryLabel:'medicamento de alto riesgo (lista orientativa, no exhaustiva)'});
 
 // ---- Reglas específicas por variable ----
@@ -136,34 +136,40 @@ if(!m)return noMencionado('edad');
 const age=parseInt(m[1],10);const idx=m.index;const clause=clauses.find(c=>idx>=c.start&&idx<c.start+c.text.length)||{text:m[0],start:idx};
 const snippet=clauseSnippet(rawText,normText,clause);
 if(age<18)return makeProposal('edad',STATUS.DETECTADO,'menor_18',snippet,`Edad numérica explícita (${age} años) inferior a 18.`);
-return makeProposal('edad',STATUS.DETECTADO,'adulto',snippet,`Edad numérica explícita (${age} años) igual o superior a 18.`)}
+if(age>60)return makeProposal('edad',STATUS.DETECTADO,'mayor_60',snippet,`Edad numérica explícita (${age} años) superior a 60.`)
+return makeProposal('edad',STATUS.DETECTADO,'hasta_60',snippet,`Edad numérica explícita (${age} años) igual o inferior a 60.`)}
 
-function ruleSexo(){return noMencionado('sexo','El modelo fuente no especifica qué condición puntúa como "riesgo" en esta variable; requiere valoración manual (ver limitaciones del analizador).')}
+function ruleSexo(normText,rawText,clauses){const fem=bestMatch(normText,rawText,clauses, [/\bmujer\b/,/sexo\s+femenino/,/paciente\s+femenina/]);
+if(!fem)return noMencionado('sexo','No se ha encontrado mención explícita de sexo femenino; no se infiere el sexo si no consta.');
+if(fem.status===STATUS.DETECTADO)return makeProposal('sexo',STATUS.DETECTADO,'femenino',clauseSnippet(rawText,normText,fem.clause),`Mención de "${fem.term}" compatible con sexo femenino.`);
+if(fem.status===STATUS.AUSENTE)return makeProposal('sexo',STATUS.AUSENTE,'otro',clauseSnippet(rawText,normText,fem.clause),`Negación explícita junto a "${fem.term}".`);
+return makeProposal('sexo',STATUS.DUDOSO,null,clauseSnippet(rawText,normText,fem.clause),`Expresión de incertidumbre junto a "${fem.term}".`)}
 
 function ruleImc(normText,rawText,clauses){
 const explicit=bestMatch(normText,rawText,clauses,[/sobrepeso/,/obesidad/,/bajo\s+peso/,/desnutricion/,/malnutricion/]);
 if(explicit&&explicit.status!=='excluir'){const snippet=clauseSnippet(rawText,normText,explicit.clause);
-if(explicit.status===STATUS.DETECTADO)return makeProposal('peso_estado_nutricional',STATUS.DETECTADO,'alterado',snippet,`Mención explícita de "${explicit.term}".`);
+if(explicit.status===STATUS.DETECTADO)return makeProposal('peso_estado_nutricional',STATUS.DETECTADO,'imc_mayor_30',snippet,`Mención explícita de "${explicit.term}".`);
 if(explicit.status===STATUS.DUDOSO)return makeProposal('peso_estado_nutricional',STATUS.DUDOSO,null,snippet,`Expresión de incertidumbre junto a "${explicit.term}".`);
-if(explicit.status===STATUS.AUSENTE)return makeProposal('peso_estado_nutricional',STATUS.AUSENTE,'normal',snippet,`Negación explícita junto a "${explicit.term}".`)}
+if(explicit.status===STATUS.AUSENTE)return makeProposal('peso_estado_nutricional',STATUS.AUSENTE,'imc_hasta_30',snippet,`Negación explícita junto a "${explicit.term}".`)}
 const m=normText.match(/imc\D{0,10}(\d{1,2}(?:[.,]\d)?)/);
 if(m){const value=parseFloat(m[1].replace(',','.'));const idx=m.index;const clause=clauses.find(c=>idx>=c.start&&idx<c.start+c.text.length)||{text:m[0],start:idx};const snippet=clauseSnippet(rawText,normText,clause);
-if(value<18.5||value>=25)return makeProposal('peso_estado_nutricional',STATUS.DETECTADO,'alterado',snippet,`IMC calculado (${value}) fuera del rango de normalidad de la OMS (18,5–24,9), aplicado de forma orientativa.`);
-return makeProposal('peso_estado_nutricional',STATUS.DETECTADO,'normal',snippet,`IMC calculado (${value}) dentro del rango de normalidad de la OMS (18,5–24,9), aplicado de forma orientativa.`)}
+if(value>30)return makeProposal('peso_estado_nutricional',STATUS.DETECTADO,'imc_mayor_30',snippet,`IMC calculado (${value}) superior a 30.`);
+return makeProposal('peso_estado_nutricional',STATUS.DETECTADO,'imc_hasta_30',snippet,`IMC calculado (${value}) igual o inferior a 30.`)}
 return noMencionado('peso_estado_nutricional')}
 
 function ruleFrecuenciaMigrana(normText,rawText,clauses){
 const chronic=bestMatch(normText,rawText,clauses,[/migrana\s+cronica/,/cefalea\s+cronica/]);
-if(chronic&&chronic.status===STATUS.DETECTADO)return makeProposal('tipo_frecuencia_migrana',STATUS.DETECTADO,'alta',clauseSnippet(rawText,normText,chronic.clause),'Diagnóstico explícito de cronicidad en el texto.');
+if(chronic&&chronic.status===STATUS.DETECTADO)return makeProposal('tipo_frecuencia_migrana',STATUS.DETECTADO,'cronica',clauseSnippet(rawText,normText,chronic.clause),'Diagnóstico explícito de cronicidad en el texto.');
 const episodic=bestMatch(normText,rawText,clauses,[/migrana\s+episodica/,/cefalea\s+episodica/]);
-if(episodic&&episodic.status===STATUS.DETECTADO)return makeProposal('tipo_frecuencia_migrana',STATUS.DETECTADO,'baja',clauseSnippet(rawText,normText,episodic.clause),'Mención explícita de frecuencia episódica.');
+if(episodic&&episodic.status===STATUS.DETECTADO)return makeProposal('tipo_frecuencia_migrana',STATUS.DETECTADO,'episodica_baja',clauseSnippet(rawText,normText,episodic.clause),'Mención explícita de frecuencia episódica.');
 const daysMatch=normText.match(/(\d{1,2})\s*(?:-|a)?\s*(\d{1,2})?\s*dias?\b[^]{0,25}\bmes/);
 if(daysMatch){const days=Math.max(parseInt(daysMatch[1],10),parseInt(daysMatch[2]||daysMatch[1],10));const idx=daysMatch.index;const clause=clauses.find(c=>idx>=c.start&&idx<c.start+c.text.length)||{text:daysMatch[0],start:idx};const snippet=clauseSnippet(rawText,normText,clause);
 const monthsMatch=clause.text.match(new RegExp(`${NUMBER_TOKEN}\\s*mes(es)?`));
 const durationOk=monthsMatch&&parseNumberToken(monthsMatch[1])>=3;
-if(days>=15&&durationOk)return makeProposal('tipo_frecuencia_migrana',STATUS.DETECTADO,'alta',snippet,'≥15 días de cefalea al mes durante ≥3 meses (criterio de cronicidad ICHD-3, aplicado de forma orientativa).');
+if(days>=15&&durationOk)return makeProposal('tipo_frecuencia_migrana',STATUS.DETECTADO,'cronica',snippet,'≥15 días de cefalea al mes durante ≥3 meses (criterio de cronicidad ICHD-3, aplicado de forma orientativa).');
 if(days>=15&&!durationOk)return makeProposal('tipo_frecuencia_migrana',STATUS.DUDOSO,null,snippet,'≥15 días de cefalea al mes, pero no se confirma la duración temporal (≥3 meses) exigida por el criterio de cronicidad.');
-return makeProposal('tipo_frecuencia_migrana',STATUS.DETECTADO,'baja',snippet,`Frecuencia mensual explícita (${days} días/mes) por debajo del umbral de cronicidad.`)}
+if(days>=8)return makeProposal('tipo_frecuencia_migrana',STATUS.DETECTADO,'episodica_alta',snippet,`Frecuencia mensual explícita (${days} días/mes) entre 8 y 14 días.`)
+return makeProposal('tipo_frecuencia_migrana',STATUS.DETECTADO,'episodica_baja',snippet,`Frecuencia mensual explícita (${days} días/mes) menor de 8 días.`)}
 return noMencionado('tipo_frecuencia_migrana')}
 
 function ruleImpacto(normText,rawText,clauses){
@@ -172,15 +178,13 @@ const midas=normText.match(/midas\D{0,10}(\d{1,3})/);
 function clauseFor(idx,fallback){return clauses.find(c=>idx>=c.start&&idx<c.start+c.text.length)||{text:fallback,start:idx}}
 let hitCat=null,midasCat=null,snippet=null;
 if(hit){const v=parseInt(hit[1],10);const clause=clauseFor(hit.index,hit[0]);snippet=clauseSnippet(rawText,normText,clause);
-hitCat=v>=60?'alto':v<50?'bajo':'zona_intermedia'}
+hitCat=v>=60?'severo':v>=60?'severo':'no_severo'}
 if(midas){const v=parseInt(midas[1],10);const clause=clauseFor(midas.index,midas[0]);snippet=snippet||clauseSnippet(rawText,normText,clause);
-midasCat=v>=21?'alto':v<6?'bajo':'zona_intermedia'}
+midasCat=v>=21?'severo':v>=21?'severo':'no_severo'}
 if(!hit&&!midas)return noMencionado('impacto_discapacidad');
 const cats=[hitCat,midasCat].filter(Boolean);
-if(cats.includes('alto')&&cats.includes('bajo'))return makeProposal('impacto_discapacidad',STATUS.DUDOSO,null,snippet,'HIT-6 y MIDAS sugieren categorías de impacto contradictorias entre sí.');
-if(cats.includes('alto'))return makeProposal('impacto_discapacidad',STATUS.DETECTADO,'alto',snippet,`Puntuación en rango de impacto grave (HIT-6≥60 o MIDAS≥21, umbrales publicados de cada instrumento, aplicados de forma orientativa).`);
-if(cats.includes('zona_intermedia'))return makeProposal('impacto_discapacidad',STATUS.DUDOSO,null,snippet,'Puntuación en zona intermedia del instrumento (HIT-6 50–59 o MIDAS 6–20); no se corresponde con claridad a "bajo" ni "alto".');
-return makeProposal('impacto_discapacidad',STATUS.DETECTADO,'bajo',snippet,'Puntuación por debajo del rango de impacto grave de HIT-6/MIDAS.')}
+if(cats.includes('severo'))return makeProposal('impacto_discapacidad',STATUS.DETECTADO,'severo',snippet,`Puntuación en rango de impacto grave (HIT-6≥60 o MIDAS≥21, umbrales publicados de cada instrumento, aplicados de forma orientativa).`);
+return makeProposal('impacto_discapacidad',STATUS.DETECTADO,'no_severo',snippet,'Puntuación por debajo del rango de impacto grave de HIT-6/MIDAS.')}
 
 function ruleComorbAggregate(normText,rawText,clauses,results){
 const explicit=bestMatch(normText,rawText,clauses,[/pluripatolog\w*/]);
@@ -190,14 +194,14 @@ const positives=['comorbilidades_psiquiatricas','comorbilidades_no_psiquiatricas
 if(positives.length>=2)return makeProposal('pluripatologia',STATUS.DUDOSO,null,positives.map(id=>results[id].evidence).filter(Boolean).join(' / '),'Se detectan ≥2 categorías de comorbilidad; la definición operativa de pluripatología no está especificada en el documento fuente y requiere confirmación profesional.');
 return noMencionado('pluripatologia')}
 
-function ruleNaive(normText,rawText,clauses){
+function rulePrimeraVisita(normText,rawText,clauses){
 const naive=bestMatch(normText,rawText,clauses,[/\bnaive\b/,/sin\s+tratamiento\s+previo/,/no\s+ha\s+recibido\s+tratamiento\s+previo/,/primera\s+linea\s+de\s+tratamiento/]);
 const tratado=bestMatch(normText,rawText,clauses,[/tratado\s+previamente/,/en\s+tratamiento\s+con/,/recibe\s+actualmente/,/tratamiento\s+previo\s+con/]);
 const naiveHit=naive&&naive.status===STATUS.DETECTADO;
 const tratadoHit=tratado&&tratado.status===STATUS.DETECTADO;
 if(naiveHit&&tratadoHit)return makeProposal('paciente_naive',STATUS.DUDOSO,null,`${clauseSnippet(rawText,normText,naive.clause)} / ${clauseSnippet(rawText,normText,tratado.clause)}`,'El texto menciona a la vez indicios de "naïve" y de tratamiento previo; contradictorio, requiere confirmación.');
-if(naiveHit)return makeProposal('paciente_naive',STATUS.DETECTADO,'naive',clauseSnippet(rawText,normText,naive.clause),`Mención de "${naive.term}" compatible con paciente naïve.`);
-if(tratadoHit)return makeProposal('paciente_naive',STATUS.DETECTADO,'tratado',clauseSnippet(rawText,normText,tratado.clause),`Mención de "${tratado.term}" compatible con tratamiento previo.`);
+if(naiveHit)return makeProposal('paciente_naive',STATUS.DETECTADO,'si',clauseSnippet(rawText,normText,naive.clause),`Mención de "${naive.term}" compatible con paciente naïve.`);
+if(tratadoHit)return makeProposal('paciente_naive',STATUS.DETECTADO,'no',clauseSnippet(rawText,normText,tratado.clause),`Mención de "${tratado.term}" compatible con tratamiento previo.`);
 return noMencionado('paciente_naive')}
 
 function ruleViaAdministracion(normText,rawText,clauses){
@@ -206,8 +210,9 @@ const simple=bestMatch(normText,rawText,clauses,[/via\s+oral/,/\boral\b/]);
 const complejaHit=compleja&&compleja.status===STATUS.DETECTADO;
 const simpleHit=simple&&simple.status===STATUS.DETECTADO;
 if(complejaHit&&simpleHit)return makeProposal('via_administracion',STATUS.DUDOSO,null,`${clauseSnippet(rawText,normText,compleja.clause)} / ${clauseSnippet(rawText,normText,simple.clause)}`,'Se mencionan vías de administración de distinta complejidad; requiere confirmación de cuál es la relevante.');
-if(complejaHit)return makeProposal('via_administracion',STATUS.DETECTADO,'compleja',clauseSnippet(rawText,normText,compleja.clause),`Mención de vía "${compleja.term}", de mayor complejidad.`);
-if(simpleHit)return makeProposal('via_administracion',STATUS.DETECTADO,'simple',clauseSnippet(rawText,normText,simple.clause),`Mención de vía "${simple.term}", de menor complejidad.`);
+if(complejaHit){if(/intravenos|infusion/.test(compleja.term))return makeProposal('via_administracion',STATUS.DETECTADO,'intravenosa',clauseSnippet(rawText,normText,compleja.clause),`Mención de vía "${compleja.term}".`);
+return makeProposal('via_administracion',STATUS.DETECTADO,'subcutanea',clauseSnippet(rawText,normText,compleja.clause),`Mención de vía "${compleja.term}".`)}
+if(simpleHit)return makeProposal('via_administracion',STATUS.DETECTADO,'oral',clauseSnippet(rawText,normText,simple.clause),`Mención de vía "${simple.term}", de menor complejidad.`);
 return noMencionado('via_administracion')}
 
 function ruleFracasosAntiCgrp(normText,rawText,clauses){
@@ -218,10 +223,10 @@ const idx=clause.text.search(failurePattern);const status=classifyOccurrence(cla
 if(status==='excluir')continue;
 const snippet=clauseSnippet(rawText,normText,clause);
 if(status===STATUS.DUDOSO)return makeProposal('fracasos_anti_cgrp',STATUS.DUDOSO,null,snippet,'Mención de fracaso a anti-CGRP con expresión de incertidumbre próxima.');
-if(status===STATUS.AUSENTE)return makeProposal('fracasos_anti_cgrp',STATUS.AUSENTE,'no',snippet,'Negación explícita de fracaso a tratamiento anti-CGRP.');
-return makeProposal('fracasos_anti_cgrp',STATUS.DETECTADO,'si',snippet,'Mención de fracaso previo a tratamiento(s) anti-CGRP.')}}
+if(status===STATUS.AUSENTE)return makeProposal('fracasos_anti_cgrp',STATUS.AUSENTE,'ninguno',snippet,'Negación explícita de fracaso a tratamiento anti-CGRP.');
+return makeProposal('fracasos_anti_cgrp',STATUS.DETECTADO,'uno',snippet,'Mención de fracaso previo a tratamiento(s) anti-CGRP.')}}
 const goodResponse=bestMatch(normText,rawText,clauses,[/buena\s+respuesta\s+a\s+anti-?cgrp/,/sin\s+fracasos?\s+previos?\s+a\s+anti-?cgrp/]);
-if(goodResponse&&goodResponse.status!=='excluir')return makeProposal('fracasos_anti_cgrp',STATUS.AUSENTE,'no',clauseSnippet(rawText,normText,goodResponse.clause),'Mención explícita de ausencia de fracasos previos / buena respuesta a anti-CGRP.');
+if(goodResponse&&goodResponse.status!=='excluir')return makeProposal('fracasos_anti_cgrp',STATUS.AUSENTE,'ninguno',clauseSnippet(rawText,normText,goodResponse.clause),'Mención explícita de ausencia de fracasos previos / buena respuesta a anti-CGRP.');
 return noMencionado('fracasos_anti_cgrp')}
 
 const TRIPTAN_OR_STRONG=/sumatriptan|rizatriptan|zolmitriptan|eletriptan|naratriptan|almotriptan|frovatriptan|opioide|ergotamina|analgesic\w*\s+combinad\w*/;
@@ -311,7 +316,7 @@ const clauses=splitClauses(normText);
 const results={};
 results.situacion_reproductiva=ruleSituacionReproductiva(normText,text,clauses);
 results.edad=ruleEdad(normText,text,clauses);
-results.sexo=ruleSexo();
+results.sexo=ruleSexo(normText,text,clauses);
 results.peso_estado_nutricional=ruleImc(normText,text,clauses);
 results.tipo_frecuencia_migrana=ruleFrecuenciaMigrana(normText,text,clauses);
 results.impacto_discapacidad=ruleImpacto(normText,text,clauses);
@@ -319,7 +324,7 @@ results.comorbilidades_psiquiatricas=ruleComorbPsiq(normText,text,clauses);
 results.comorbilidades_no_psiquiatricas=ruleComorbNoPsiq(normText,text,clauses);
 results.comorbilidades_cardiovasculares=ruleComorbCardio(normText,text,clauses);
 results.pluripatologia=ruleComorbAggregate(normText,text,clauses,results);
-results.paciente_naive=ruleNaive(normText,text,clauses);
+results.paciente_naive=rulePrimeraVisita(normText,text,clauses);
 results.via_administracion=ruleViaAdministracion(normText,text,clauses);
 results.riesgo_interacciones=ruleInteracciones(normText,text,clauses);
 results.fracasos_anti_cgrp=ruleFracasosAntiCgrp(normText,text,clauses);
