@@ -1,30 +1,48 @@
-# Política de IA
+# Política de inteligencia artificial
 
-La versión inicial no utiliza LLM externo ni módulo de extracción automática desde texto libre. No se realizan inferencias automáticas desde texto clínico.
+**Esta herramienta no utiliza, no contrata y no llama a ningún modelo ni servicio de
+inteligencia artificial generativa, gratuito o de pago (ni Azure OpenAI, ni OpenAI, ni
+Anthropic/ChatGPT, ni ningún otro proveedor).** No existe integración con ninguna API externa
+de IA. Una suscripción personal a un servicio de chat como ChatGPT no se considera ni se
+utiliza como una API desde esta aplicación.
 
-## Extracción asistida por IA (opcional)
+Versiones anteriores de esta sección exploraron dos enfoques basados en LLM externo (un flujo
+de copia-pega de prompt/JSON, y después un flujo BYOK con llamada directa navegador→proveedor
+con clave propia del usuario). Ambos enfoques, y todo el código asociado (`ai-extraction.mjs`,
+`ai-providers.mjs`, `key-storage.mjs`), **se han eliminado por completo** del repositorio a
+petición expresa: esta herramienta no debe presentarse como IA generativa ni depender de
+ningún servicio externo.
 
-Se ha añadido una sección opcional y colapsada por defecto, "Extracción asistida por IA (opcional)", situada antes del cuestionario manual.
+## Preestratificación automática desde texto
 
-### Flujo principal: un solo paso, BYOK (Bring Your Own Key)
+La sección "Preestratificación automática desde texto" (colapsada por defecto, situada antes
+del cuestionario manual) es un **analizador local de reglas**, no un modelo de lenguaje:
 
-Desde la versión 1.2.0, el flujo principal es de un solo botón: el farmacéutico pega el evolutivo/HC ya anonimizado y pulsa "Extraer y prerrellenar cuestionario". La herramienta llama **directamente desde el navegador** (fetch HTTPS, sin backend propio) a la API del proveedor de IA que el propio usuario ha configurado con su clave personal (Azure OpenAI, OpenAI o Anthropic). No hay ningún servidor intermedio de la herramienta: la clave y el texto viajan solo entre el navegador del farmacéutico y el proveedor elegido.
+- Se ejecuta **íntegramente en el navegador** del farmacéutico, sobre el texto que él mismo
+  pega. No realiza ninguna solicitud de red, no depende de conexión a internet una vez cargada
+  la página, y no envía el texto a ningún servidor propio ni de terceros.
+- Es **determinista y auditable**: usa expresiones regulares y heurísticas explícitas de
+  negación, duda y antecedente familiar (ver `src/local-extractor.mjs`), no un modelo
+  estadístico ni probabilístico. El mismo texto produce siempre exactamente el mismo resultado.
+- Para cada variable del cuestionario CMO distingue entre **detectado**, **ausente
+  explícitamente**, **dudoso o contradictorio** y **no mencionado**, y nunca convierte "no
+  mencionado" en una respuesta negativa ni en una puntuación de cero.
+- Cada propuesta conserva el **fragmento textual exacto** que la sustenta y la **regla** que la
+  produjo, mostrados en una tabla de revisión antes de trasladar nada al cuestionario.
+- **Ninguna propuesta se aplica al cuestionario sin confirmación individual explícita** del
+  profesional (confirmar, corregir o rechazar variable por variable); no existe un botón de
+  "aceptar todo".
+- El esquema de variables se deriva siempre del catálogo real del cuestionario (`VARIABLES` en
+  `core.mjs`), no de una copia mantenida a mano, para que nunca se desincronice del formulario.
+- Los campos confirmados quedan marcados visualmente («Preestratificación — revisar») hasta que
+  el farmacéutico los confirma de nuevo o los edita manualmente en el cuestionario.
+- La lógica del modelo CMO, los pesos y los puntos de corte de estratificación (`core.mjs`) no
+  se han modificado en absoluto por esta funcionalidad.
+- Las limitaciones conocidas del analizador (alcance de la negación, umbrales clínicos externos
+  aplicados de forma orientativa, variables sin regla de detección, listas de palabras clave no
+  exhaustivas) están documentadas en el propio código (`LIMITATIONS` en `local-extractor.mjs`) y
+  se muestran en la interfaz en un desplegable "Limitaciones conocidas del analizador".
 
-- Antes de la primera llamada se exige un consentimiento explícito (modal bloqueante) que recuerda la responsabilidad del usuario/institución sobre el cumplimiento normativo y el contrato con el proveedor, y advierte contra el uso de proveedores no autorizados por el centro. El consentimiento se recuerda en `localStorage` (booleano + fecha) y puede revocarse en cualquier momento desde el panel de configuración (⚙️).
-- Un aviso permanente, no descartable, recuerda en todo momento que el texto se envía al proveedor configurado en cuanto se pulsa el botón.
-- Si la respuesta no es JSON válido, se reintenta automáticamente una vez con una instrucción reforzada; si el segundo intento también falla, o si la conexión falla (red, 401/403, 429, 5xx, timeout de 60 s), se muestra un mensaje específico y se ofrece siempre el modo manual como alternativa.
-- La clave API, por defecto, vive únicamente en memoria durante la sesión ("solo esta sesión"). Si el usuario elige "recordar en este navegador", se cifra con AES-GCM (SubtleCrypto) derivando la clave de cifrado de una frase de paso mediante PBKDF2; nunca se guarda en texto plano.
-
-### Modo manual (fallback), oculto tras un enlace
-
-El flujo de copia-pega bidireccional original (generar prompt → copiarlo a un LLM corporativo autorizado → pegar la respuesta JSON) se conserva íntegro para los centros que no puedan autorizar llamadas directas a una API externa. Está oculto por defecto tras el enlace "Modo manual (fallback)" y se activa automáticamente como alternativa cuando el flujo de un solo paso falla dos veces. Sigue advirtiendo explícitamente contra el uso de LLM públicos gratuitos con datos clínicos.
-
-### Common a ambos flujos
-
-- El esquema de campos del prompt (y su validación) se genera y se reutiliza siempre a partir del catálogo real de variables del cuestionario (`VARIABLES` en `core.mjs`, vía `ai-extraction.mjs`), no de una copia mantenida a mano.
-- La IA debe devolver `null` para cualquier campo sin información suficiente (nunca debe inventar valores) y debe aportar citas textuales de trazabilidad clínica para cada campo extraído.
-- Los valores devueltos se validan (tipo y pertenencia al conjunto de opciones permitidas) antes de aplicarse al cuestionario; los campos con incidencias se reportan sin bloquear el uso manual del formulario.
-- Los campos autorrellenados quedan marcados visualmente («IA — revisar») hasta que el farmacéutico los confirma o los edita manualmente.
-- La lógica del modelo CMO, los pesos y los puntos de corte de estratificación (`core.mjs`) no se han modificado en absoluto por esta funcionalidad.
-
-Ver `PRIVACY.md` para el detalle de qué datos de esta sección se conservan (ninguno del texto clínico o la respuesta; opcionalmente, la clave API cifrada).
+Ver `PRIVACY.md` para el detalle de qué datos se conservan (ninguno del texto pegado ni de las
+propuestas del analizador; solo los valores finalmente confirmados por el profesional, igual
+que si los hubiera escrito a mano).
