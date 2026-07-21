@@ -85,9 +85,9 @@ const r=find('Paciente naïve que sin embargo se encuentra en tratamiento con to
 assert.equal(r.status,STATUS.DUDOSO);assert.equal(r.proposedValue,null);
 });
 
-test('información contradictoria: HIT-6 alto y MIDAS bajo en el mismo texto se marca dudosa',()=>{
+test('HIT-6 severo y MIDAS no severo aplica OR lógico sin marcar contradicción',()=>{
 const r=find('HIT-6: 64 puntos. MIDAS: 3 puntos.','impacto_discapacidad');
-assert.equal(r.status,STATUS.DUDOSO);
+assert.equal(r.status,STATUS.DETECTADO);assert.equal(r.proposedValue,'severo');
 });
 
 test('cifras y rangos: edad de 16 años se clasifica como menor de 18',()=>{
@@ -97,17 +97,17 @@ assert.equal(r.status,STATUS.DETECTADO);assert.equal(r.proposedValue,'menor_18')
 
 test('cifras y rangos: edad de 45 años se clasifica como adulto',()=>{
 const r=find('Mujer de 45 años en seguimiento por migraña.','edad');
-assert.equal(r.proposedValue,'adulto');
+assert.equal(r.proposedValue,'hasta_60');
 });
 
 test('unidades: IMC 32 (obesidad OMS) marca alteración de peso/estado nutricional',()=>{
 const r=find('IMC: 32.','peso_estado_nutricional');
-assert.equal(r.status,STATUS.DETECTADO);assert.equal(r.proposedValue,'alterado');
+assert.equal(r.status,STATUS.DETECTADO);assert.equal(r.proposedValue,'imc_mayor_30');
 });
 
 test('unidades: IMC 21 (rango normal OMS) no marca alteración',()=>{
 const r=find('IMC: 21.','peso_estado_nutricional');
-assert.equal(r.proposedValue,'normal');
+assert.equal(r.proposedValue,'imc_hasta_30');
 });
 
 test('criterios que requieren duración temporal: 12 días este mes no confirma uso excesivo por sí solo',()=>{
@@ -127,32 +127,32 @@ assert.equal(r.status,STATUS.DUDOSO);
 
 test('criterios que requieren duración temporal: ≥15 días/mes durante ≥3 meses confirma migraña de alta frecuencia',()=>{
 const r=find('Refiere 18 días de cefalea al mes durante 4 meses.','tipo_frecuencia_migrana');
-assert.equal(r.status,STATUS.DETECTADO);assert.equal(r.proposedValue,'alta');
+assert.equal(r.status,STATUS.DETECTADO);assert.equal(r.proposedValue,'cronica');
 });
 
 test('HIT-6: puntuación ≥60 se clasifica como impacto alto',()=>{
 const r=find('HIT-6: 66 puntos.','impacto_discapacidad');
-assert.equal(r.proposedValue,'alto');
+assert.equal(r.proposedValue,'severo');
 });
 
-test('HIT-6: puntuación en zona intermedia (50-59) queda dudosa, no se fuerza a alto ni bajo',()=>{
-const r=find('HIT-6: 55 puntos.','impacto_discapacidad');
-assert.equal(r.status,STATUS.DUDOSO);
+test('HIT-6: puntuación 59 sin MIDAS severo se clasifica como no severa',()=>{
+const r=find('HIT-6: 59 puntos.','impacto_discapacidad');
+assert.equal(r.status,STATUS.DETECTADO);assert.equal(r.proposedValue,'no_severo');
 });
 
 test('MIDAS: puntuación ≥21 se clasifica como impacto alto',()=>{
 const r=find('MIDAS: 24 puntos.','impacto_discapacidad');
-assert.equal(r.proposedValue,'alto');
+assert.equal(r.proposedValue,'severo');
 });
 
 test('MIDAS: puntuación baja (<6) se clasifica como impacto bajo',()=>{
 const r=find('MIDAS: 3 puntos.','impacto_discapacidad');
-assert.equal(r.proposedValue,'bajo');
+assert.equal(r.proposedValue,'no_severo');
 });
 
 test('días mensuales de cefalea: frecuencia baja explícita sin cronicidad',()=>{
 const r=find('Refiere 4 días de cefalea al mes.','tipo_frecuencia_migrana');
-assert.equal(r.proposedValue,'baja');
+assert.equal(r.proposedValue,'episodica_baja');
 });
 
 test('uso excesivo de medicación sintomática: analgésico simple bajo el umbral de 15 días no confirma uso excesivo',()=>{
@@ -215,9 +215,9 @@ const r=find('Adolescente de 15 años remitida por su pediatra.','edad');
 assert.equal(r.status,STATUS.DETECTADO);assert.equal(r.proposedValue,'menor_18');
 });
 
-test('sexo: sin regla de detección automática, siempre no mencionado (limitación documentada)',()=>{
+test('sexo: mención de mujer propone sexo femenino',()=>{
 const r=find('Mujer de 30 años con migraña episódica.','sexo');
-assert.equal(r.status,STATUS.NO_MENCIONADO);
+assert.equal(r.status,STATUS.DETECTADO);assert.equal(r.proposedValue,'femenino');
 });
 
 test('medicamentos de alto riesgo: solo propone "sí" ante coincidencia explícita, nunca "no" automático',()=>{
@@ -271,7 +271,7 @@ assert.equal(first,second);
 
 test('LIMITATIONS documenta explícitamente las limitaciones del analizador',()=>{
 assert.ok(Array.isArray(LIMITATIONS)&&LIMITATIONS.length>0);
-assert.ok(LIMITATIONS.some(l=>/sexo/.test(l)));
+assert.ok(LIMITATIONS.some(l=>/datos no documentados|no mencionado|sexo/.test(l)));
 assert.ok(LIMITATIONS.some(l=>/red/.test(l)));
 });
 
