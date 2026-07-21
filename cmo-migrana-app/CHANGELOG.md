@@ -1,5 +1,27 @@
 # Changelog
 
+## 2.0.0 - 2026-07-21
+
+- **Eliminado por completo** el uso de cualquier servicio de inteligencia artificial generativa
+  externa (Azure OpenAI, OpenAI, Anthropic), gratuito o de pago: se han borrado los módulos
+  `src/ai-extraction.mjs`, `src/ai-providers.mjs` y `src/key-storage.mjs`, junto con toda la
+  configuración de proveedor, endpoint, deployment, clave API, almacenamiento cifrado de
+  credenciales, modal de consentimiento de envío a proveedor y los textos asociados.
+- Renombrada y reconstruida la sección como **"Preestratificación automática desde texto"**:
+  un analizador **local, determinista y auditable** (`src/local-extractor.mjs`, motor de
+  reglas léxicas con detección de negación, duda y antecedente familiar), sin IA generativa,
+  sin llamadas a red y funcional sin conexión.
+- Nueva interfaz de revisión: tabla con variable, propuesta, estado de certeza (detectado /
+  ausente explícitamente / dudoso o contradictorio / no mencionado), fragmento justificativo,
+  regla aplicada y puntuación provisional; confirmación, corrección o rechazo individual por
+  variable (sin "aceptar todo"). Ninguna propuesta se traslada al cuestionario sin confirmación
+  explícita; los campos no mencionados nunca se interpretan como respuesta negativa ni como cero.
+- Los campos confirmados quedan marcados («Preestratificación — revisar») igual que antes, con
+  el mismo mecanismo de marcado visual y la misma limpieza automática al cambiar de caso.
+- Nuevo desplegable "Limitaciones conocidas del analizador" visible en la propia interfaz.
+- No se ha modificado la lógica del modelo CMO, el cuestionario manual, la exportación/impresión
+  ni la atribución de autoría.
+
 ## 1.2.0 - 2026-07-21
 
 - Reemplazado el flujo bidireccional de extracción por IA por un flujo de un solo paso: pegar HC → botón "Extraer y prerrellenar cuestionario" → llamada directa navegador→proveedor de IA (BYOK, sin backend) → cuestionario prerrellenado y marcado.
