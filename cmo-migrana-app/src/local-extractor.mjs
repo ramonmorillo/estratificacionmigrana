@@ -99,15 +99,14 @@ if(best.status===STATUS.AUSENTE&&negativeOption)return makeProposal(variableId,S
 return noMencionado(variableId)}}
 
 const psiquiatricasKeywords=[/ansiedad/,/depresi\w*/,/trastorno\s+bipolar/,/esquizofrenia/,/trastorno\s+de\s+panico/,/psiquiatric\w*/];
-const noPsiquiatricasKeywords=[/diabetes/,/\basma\b/,/hipotiroidismo/,/hipertiroidismo/,/\bepoc\b/,/fibromialgia/,/epilepsia/];
-const cardiovascularesKeywords=[/hipertensi\w*(\s+arterial)?/,/\bhta\b/,/cardiopat\w*/,/cardiovascular\w*/,/arritmia/,/insuficiencia\s+cardiaca/,/fibrilacion\s+auricular/,/\bictus\b/,/\back\b/];
+const dolorCronicoKeywords=[/dolor\s+cronico/,/fibromialgia/];
+const cardiovascularesKeywords=[/hipertensi\w*(\s+arterial)?/,/\bhta\b/,/infarto\s+de\s+miocardio/,/\biam\b/,/accidente\s+cerebrovascular/,/cardiovascular\w*/,/\bacv\b/,/\bictus\b/];
 const interaccionesKeywords=[/interacci\w+/];
 const efectosAdversosKeywords=[/efecto(s)?\s+adverso(s)?/,/reaccion\s+adversa/,/mal\s+tolerad[oa]/,/intolerancia/];
 const altoRiesgoKeywords=[/opioide/,/tramadol/,/morfina/,/oxicodona/,/acenocumarol/,/warfarina/,/heparina/,/insulina/,/metotrexato/];
 
 const ruleComorbPsiq=binaryKeywordRule({variableId:'comorbilidades_psiquiatricas',positiveOption:'si',negativeOption:'no',keywords:psiquiatricasKeywords,categoryLabel:'comorbilidad psiquiátrica'});
-const ruleComorbNoPsiq=binaryKeywordRule({variableId:'comorbilidades_no_psiquiatricas',positiveOption:'si',negativeOption:'no',keywords:noPsiquiatricasKeywords,categoryLabel:'comorbilidad no psiquiátrica'});
-const ruleComorbCardio=binaryKeywordRule({variableId:'comorbilidades_cardiovasculares',positiveOption:'si',negativeOption:'no',keywords:cardiovascularesKeywords,categoryLabel:'comorbilidad cardiovascular'});
+
 const ruleInteracciones=binaryKeywordRule({variableId:'riesgo_interacciones',positiveOption:'si',negativeOption:'no',keywords:interaccionesKeywords,categoryLabel:'riesgo de interacciones'});
 const ruleEfectosAdversos=binaryKeywordRule({variableId:'efectos_adversos',positiveOption:'leves',negativeOption:'sin_relevantes',keywords:efectosAdversosKeywords,categoryLabel:'efectos adversos'});
 const ruleAltoRiesgo=binaryKeywordRule({variableId:'medicamentos_alto_riesgo',positiveOption:'si',negativeOption:null,keywords:altoRiesgoKeywords,categoryLabel:'medicamento de alto riesgo (lista orientativa, no exhaustiva)'});
@@ -123,7 +122,7 @@ for(const c of concepts){const best=bestMatch(normText,rawText,clauses,c.pattern
 if(!found.length)return noMencionado('situacion_reproductiva');
 const detected=found.filter(f=>f.best.status===STATUS.DETECTADO);
 if(detected.length>1)return makeProposal('situacion_reproductiva',STATUS.DUDOSO,null,detected.map(d=>clauseSnippet(rawText,normText,d.best.clause)).join(' / '),'Se mencionan varias situaciones reproductivas simultáneamente; requiere confirmación de cuál aplica.');
-if(detected.length===1)return makeProposal('situacion_reproductiva',STATUS.DETECTADO,detected[0].id,clauseSnippet(rawText,normText,detected[0].best.clause),`Mención directa de "${detected[0].best.term}" sin negación ni duda en el entorno inmediato.`);
+if(detected.length===1)return makeProposal('situacion_reproductiva',STATUS.DETECTADO,'si',clauseSnippet(rawText,normText,detected[0].best.clause),`Mención directa de "${detected[0].best.term}" sin negación ni duda en el entorno inmediato; activa Prioridad 1 por situación reproductiva.`);
 const hedged=found.filter(f=>f.best.status===STATUS.DUDOSO);
 if(hedged.length)return makeProposal('situacion_reproductiva',STATUS.DUDOSO,null,clauseSnippet(rawText,normText,hedged[0].best.clause),`Expresión de incertidumbre junto a "${hedged[0].best.term}"; no puede descartarse ni confirmarse.`);
 const negated=found.filter(f=>f.best.status===STATUS.AUSENTE);
@@ -173,24 +172,30 @@ return makeProposal('tipo_frecuencia_migrana',STATUS.DETECTADO,'episodica_baja',
 return noMencionado('tipo_frecuencia_migrana')}
 
 function ruleImpacto(normText,rawText,clauses){
-const hit=normText.match(/hit-?6\D{0,10}(\d{1,3})/);
-const midas=normText.match(/midas\D{0,10}(\d{1,3})/);
-function clauseFor(idx,fallback){return clauses.find(c=>idx>=c.start&&idx<c.start+c.text.length)||{text:fallback,start:idx}}
-let hitCat=null,midasCat=null,snippet=null;
-if(hit){const v=parseInt(hit[1],10);const clause=clauseFor(hit.index,hit[0]);snippet=clauseSnippet(rawText,normText,clause);
-hitCat=v>=60?'severo':v>=60?'severo':'no_severo'}
-if(midas){const v=parseInt(midas[1],10);const clause=clauseFor(midas.index,midas[0]);snippet=snippet||clauseSnippet(rawText,normText,clause);
-midasCat=v>=21?'severo':v>=21?'severo':'no_severo'}
-if(!hit&&!midas)return noMencionado('impacto_discapacidad');
-const cats=[hitCat,midasCat].filter(Boolean);
-if(cats.includes('severo'))return makeProposal('impacto_discapacidad',STATUS.DETECTADO,'severo',snippet,`Puntuación en rango de impacto grave (HIT-6≥60 o MIDAS≥21, umbrales publicados de cada instrumento, aplicados de forma orientativa).`);
-return makeProposal('impacto_discapacidad',STATUS.DETECTADO,'no_severo',snippet,'Puntuación por debajo del rango de impacto grave de HIT-6/MIDAS.')}
+const explicit=bestMatch(normText,rawText,clauses,[/impacto\s+severo/,/impacto\s+sustancial/,/impacto\s+moderado/,/poco\s+o\s+ningun\s+impacto/,/sin\s+impacto/]);
+if(explicit&&explicit.status!==STATUS.NO_MENCIONADO){const sn=clauseSnippet(rawText,normText,explicit.clause);if(explicit.status===STATUS.DUDOSO)return makeProposal('impacto_discapacidad',STATUS.DUDOSO,null,sn,`Expresión de incertidumbre junto a "${explicit.term}".`);if(explicit.status===STATUS.AUSENTE)return makeProposal('impacto_discapacidad',STATUS.AUSENTE,'poco_ninguno',sn,`Negación explícita junto a "${explicit.term}".`);if(/severo/.test(explicit.term))return makeProposal('impacto_discapacidad',STATUS.DETECTADO,'severo',sn,'Mención explícita de impacto severo.');if(/sustancial/.test(explicit.term))return makeProposal('impacto_discapacidad',STATUS.DETECTADO,'sustancial',sn,'Mención explícita de impacto sustancial.');if(/moderado/.test(explicit.term))return makeProposal('impacto_discapacidad',STATUS.DETECTADO,'moderado',sn,'Mención explícita de impacto moderado.');return makeProposal('impacto_discapacidad',STATUS.DETECTADO,'poco_ninguno',sn,'Mención explícita de poco, ningún o ausencia de impacto.')}
+const hit=normText.match(/hit-?6\D{0,10}(\d{1,3})/);const midas=normText.match(/midas\D{0,10}(\d{1,3})/);function clauseFor(idx,fallback){return clauses.find(c=>idx>=c.start&&idx<c.start+c.text.length)||{text:fallback,start:idx}}
+let cats=[],snippet=null;if(hit){const v=parseInt(hit[1],10);const clause=clauseFor(hit.index,hit[0]);snippet=clauseSnippet(rawText,normText,clause);cats.push(v>=60?'severo':v>=56?'sustancial':v>=50?'moderado':'poco_ninguno')}if(midas){const v=parseInt(midas[1],10);const clause=clauseFor(midas.index,midas[0]);snippet=snippet||clauseSnippet(rawText,normText,clause);cats.push(v>=21?'severo':v>=11?'sustancial':v>=6?'moderado':'poco_ninguno')}if(!cats.length)return noMencionado('impacto_discapacidad');const order={poco_ninguno:0,moderado:1,sustancial:2,severo:3};const cat=cats.sort((a,b)=>order[b]-order[a])[0];return makeProposal('impacto_discapacidad',STATUS.DETECTADO,cat,snippet,'Clasificación por categoría de mayor impacto a partir de HIT-6/MIDAS conservando los umbrales ya usados para severidad.')}
+
+
+function ruleComorbNoPsiq(normText,rawText,clauses){
+const cardio=bestMatch(normText,rawText,clauses,cardiovascularesKeywords);
+const dolor=bestMatch(normText,rawText,clauses,dolorCronicoKeywords);
+const detectedCardio=cardio&&cardio.status===STATUS.DETECTADO;
+const detectedDolor=dolor&&dolor.status===STATUS.DETECTADO;
+if(detectedCardio)return makeProposal('comorbilidades_no_psiquiatricas',STATUS.DETECTADO,'cardiovascular',clauseSnippet(rawText,normText,cardio.clause),`Mención de "${cardio.term}"; se aplica la categoría de mayor puntuación si coexiste con dolor crónico.`);
+if(detectedDolor)return makeProposal('comorbilidades_no_psiquiatricas',STATUS.DETECTADO,'dolor_cronico',clauseSnippet(rawText,normText,dolor.clause),`Mención de "${dolor.term}" compatible con dolor crónico.`);
+const absent=cardio&&cardio.status===STATUS.AUSENTE?cardio:dolor&&dolor.status===STATUS.AUSENTE?dolor:null;
+if(absent)return makeProposal('comorbilidades_no_psiquiatricas',STATUS.AUSENTE,'no',clauseSnippet(rawText,normText,absent.clause),`Negación explícita junto a "${absent.term}".`);
+const doubtful=cardio&&cardio.status===STATUS.DUDOSO?cardio:dolor&&dolor.status===STATUS.DUDOSO?dolor:null;
+if(doubtful)return makeProposal('comorbilidades_no_psiquiatricas',STATUS.DUDOSO,null,clauseSnippet(rawText,normText,doubtful.clause),`Expresión de incertidumbre junto a "${doubtful.term}".`);
+return noMencionado('comorbilidades_no_psiquiatricas')}
 
 function ruleComorbAggregate(normText,rawText,clauses,results){
 const explicit=bestMatch(normText,rawText,clauses,[/pluripatolog\w*/]);
 if(explicit&&explicit.status===STATUS.DETECTADO)return makeProposal('pluripatologia',STATUS.DETECTADO,'si',clauseSnippet(rawText,normText,explicit.clause),'Mención explícita de pluripatología en el texto.');
 if(explicit&&explicit.status===STATUS.AUSENTE)return makeProposal('pluripatologia',STATUS.AUSENTE,'no',clauseSnippet(rawText,normText,explicit.clause),'Negación explícita de pluripatología en el texto.');
-const positives=['comorbilidades_psiquiatricas','comorbilidades_no_psiquiatricas','comorbilidades_cardiovasculares'].filter(id=>results[id]&&results[id].status===STATUS.DETECTADO);
+const positives=['comorbilidades_psiquiatricas','comorbilidades_no_psiquiatricas'].filter(id=>results[id]&&results[id].status===STATUS.DETECTADO);
 if(positives.length>=2)return makeProposal('pluripatologia',STATUS.DUDOSO,null,positives.map(id=>results[id].evidence).filter(Boolean).join(' / '),'Se detectan ≥2 categorías de comorbilidad; la definición operativa de pluripatología no está especificada en el documento fuente y requiere confirmación profesional.');
 return noMencionado('pluripatologia')}
 
@@ -322,7 +327,6 @@ results.tipo_frecuencia_migrana=ruleFrecuenciaMigrana(normText,text,clauses);
 results.impacto_discapacidad=ruleImpacto(normText,text,clauses);
 results.comorbilidades_psiquiatricas=ruleComorbPsiq(normText,text,clauses);
 results.comorbilidades_no_psiquiatricas=ruleComorbNoPsiq(normText,text,clauses);
-results.comorbilidades_cardiovasculares=ruleComorbCardio(normText,text,clauses);
 results.pluripatologia=ruleComorbAggregate(normText,text,clauses,results);
 results.paciente_naive=rulePrimeraVisita(normText,text,clauses);
 results.via_administracion=ruleViaAdministracion(normText,text,clauses);
