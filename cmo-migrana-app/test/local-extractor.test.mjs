@@ -18,13 +18,13 @@ assert.equal(r.status,STATUS.AUSENTE);assert.equal(r.proposedValue,'no');assert.
 });
 
 test('negaciones simples: "Sin hipertensión" marca ausencia explícita de comorbilidad cardiovascular',()=>{
-const r=find('Sin hipertensión arterial ni otras comorbilidades.','comorbilidades_cardiovasculares');
+const r=find('Sin hipertensión arterial ni otras comorbilidades.','comorbilidades_no_psiquiatricas');
 assert.equal(r.status,STATUS.AUSENTE);assert.equal(r.proposedValue,'no');
 });
 
 test('negaciones con alcance limitado: la negación de una cláusula no contamina la siguiente',()=>{
 const text='Sin antecedentes cardiovasculares. Presenta ansiedad de larga evolución.';
-const cardio=find(text,'comorbilidades_cardiovasculares');
+const cardio=find(text,'comorbilidades_no_psiquiatricas');
 const psiq=find(text,'comorbilidades_psiquiatricas');
 assert.equal(cardio.status,STATUS.AUSENTE);
 assert.equal(psiq.status,STATUS.DETECTADO);assert.equal(psiq.proposedValue,'si');
@@ -36,7 +36,7 @@ assert.equal(r.status,STATUS.DETECTADO);assert.equal(r.proposedValue,'si');
 });
 
 test('antecedentes familiares: no se asigna la comorbilidad al paciente',()=>{
-const r=find('Antecedente familiar de hipertensión arterial. Resto sin hallazgos relevantes.','comorbilidades_cardiovasculares');
+const r=find('Antecedente familiar de hipertensión arterial. Resto sin hallazgos relevantes.','comorbilidades_no_psiquiatricas');
 assert.equal(r.status,STATUS.NO_MENCIONADO);
 assert.notEqual(r.status,STATUS.DETECTADO);
 });
@@ -47,7 +47,7 @@ assert.notEqual(r.proposedValue,'si');
 });
 
 test('antecedentes familiares: el salto de línea de ajuste ("soft-wrap") entre "antecedente familiar de" y la condición no rompe la exclusión',()=>{
-const r=find('Antecedente familiar de\nhipertensión arterial. Sin otros hallazgos.','comorbilidades_cardiovasculares');
+const r=find('Antecedente familiar de\nhipertensión arterial. Sin otros hallazgos.','comorbilidades_no_psiquiatricas');
 assert.notEqual(r.status,STATUS.DETECTADO);
 });
 
@@ -137,7 +137,7 @@ assert.equal(r.proposedValue,'severo');
 
 test('HIT-6: puntuación 59 sin MIDAS severo se clasifica como no severa',()=>{
 const r=find('HIT-6: 59 puntos.','impacto_discapacidad');
-assert.equal(r.status,STATUS.DETECTADO);assert.equal(r.proposedValue,'no_severo');
+assert.equal(r.status,STATUS.DETECTADO);assert.equal(r.proposedValue,'sustancial');
 });
 
 test('MIDAS: puntuación ≥21 se clasifica como impacto alto',()=>{
@@ -147,7 +147,7 @@ assert.equal(r.proposedValue,'severo');
 
 test('MIDAS: puntuación baja (<6) se clasifica como impacto bajo',()=>{
 const r=find('MIDAS: 3 puntos.','impacto_discapacidad');
-assert.equal(r.proposedValue,'no_severo');
+assert.equal(r.proposedValue,'poco_ninguno');
 });
 
 test('días mensuales de cefalea: frecuencia baja explícita sin cronicidad',()=>{
@@ -187,7 +187,7 @@ assert.equal(r.status,STATUS.DETECTADO);assert.equal(r.proposedValue,'si');
 
 test('embarazo: mención directa sin negación se detecta',()=>{
 const r=find('Paciente embarazada de 20 semanas.','situacion_reproductiva');
-assert.equal(r.status,STATUS.DETECTADO);assert.equal(r.proposedValue,'embarazo');
+assert.equal(r.status,STATUS.DETECTADO);assert.equal(r.proposedValue,'si');
 });
 
 test('embarazo: negación explícita ("niega embarazo") marca ausencia (no_aplica)',()=>{
@@ -197,12 +197,12 @@ assert.equal(r.status,STATUS.AUSENTE);assert.equal(r.proposedValue,'no_aplica');
 
 test('lactancia: mención directa se detecta',()=>{
 const r=find('Actualmente en periodo de lactancia materna exclusiva.','situacion_reproductiva');
-assert.equal(r.proposedValue,'lactancia');
+assert.equal(r.proposedValue,'si');
 });
 
 test('deseo gestacional: mención directa se detecta',()=>{
 const r=find('La paciente refiere deseo gestacional inminente.','situacion_reproductiva');
-assert.equal(r.proposedValue,'deseo_gestacional');
+assert.equal(r.proposedValue,'si');
 });
 
 test('embarazo: expresión de duda no se convierte en ausencia ni en detección confirmada',()=>{
