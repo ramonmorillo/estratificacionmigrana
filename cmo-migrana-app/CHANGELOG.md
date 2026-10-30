@@ -1,6 +1,10 @@
 # Changelog
 
-## Sin publicar — Identidad CMO Design System 0.1.0 (rama `design/cmo-ds-0.1.0`)
+## 2.1.0 - 2026-10-30
+
+Publicación de la identidad CMO Design System (decisión del autor: versión menor por el cambio de interfaz). `package.json` seguía en 1.0.0 aunque este CHANGELOG registraba 1.1.0, 1.2.0 y 2.0.0; se alinea con la última entrada (2.0.0 → 2.1.0) para no reutilizar números ya asignados. CMO Design System actualizado a 0.2.0. `cmo-app-meta`: `status: "released"`, `releaseDate: "2026-10-30"`. `MODEL_VERSION` (CMO-Migraña v1.0) sin cambios.
+
+### Identidad CMO Design System (antes «sin publicar»)
 
 Cambio exclusivamente visual. Sin cambios en `src/core.mjs`, `src/local-extractor.mjs` ni `src/main.js`; `MODEL_VERSION` sin cambios.
 - Copia fijada del CMO Design System 0.1.0 en `src/cmo-ds/` (manifiesto SHA-256).
