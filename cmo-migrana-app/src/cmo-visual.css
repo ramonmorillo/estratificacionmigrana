@@ -1,0 +1,52 @@
+/* CMO Design System 0.1.0 · tema «Estratos» de SIAF-CMO Migraña
+   Se carga después de style.css. Solo presentación: no altera textos, puntuaciones
+   ni los colores semánticos de prioridad (.p1/.p2/.p3) ni del preanálisis (.pre-*).
+   Tokens: src/cmo-ds/ (copia fijada, ver CMO-DS-VERSION.json). */
+:root { --cmo-accent: #6b3fa0; font-family: var(--cmo-font-sans); color: var(--cmo-ink); background: var(--cmo-paper); } /* submarca Migraña: solo identidad */
+
+body { background: var(--cmo-paper); }
+body:before { content: none; }
+
+.hero, .panel, footer { border-radius: var(--cmo-radius-md); box-shadow: var(--cmo-shadow-1); backdrop-filter: none; }
+.hero { position: relative; min-height: auto; padding: clamp(28px, 4vw, 44px); color: var(--cmo-ink);
+  background: var(--cmo-surface); border-color: var(--cmo-rule); }
+.hero__content::before { /* franja de estratos C·M·O (decorativa) */
+  content: ""; display: block; width: 160px; height: 4px; margin-bottom: var(--cmo-space-4);
+  background: linear-gradient(90deg, var(--cmo-c) 0 50%, transparent 50% 52%, var(--cmo-m) 52% 80%, transparent 80% 82%, var(--cmo-o) 82%);
+}
+.panel, footer { background: var(--cmo-surface); color: var(--cmo-ink); border-color: var(--cmo-rule); }
+h1 { margin: 20px 0 12px; font: 600 clamp(2.4rem, 6vw, 4.2rem)/1.02 var(--cmo-font-serif); letter-spacing: -.02em; color: var(--cmo-ink); text-shadow: none; }
+.subtitle { font-weight: 500; font-size: clamp(1.1rem, 2vw, 1.5rem); line-height: 1.3; color: var(--cmo-ink-muted); }
+.badge { background: var(--cmo-brand-soft); color: var(--cmo-brand-strong); border-color: transparent; border-radius: var(--cmo-radius-pill); }
+
+/* Chips C·M·O del hero = tríada de marca (identidad, no estados clínicos) */
+.chips span, .ecosystem__tags span { background: var(--cmo-ink); color: #fff; border-color: transparent; }
+.chips span:nth-child(1) { background: var(--cmo-c); }
+.chips span:nth-child(2) { background: var(--cmo-m); }
+.chips span:nth-child(3) { background: var(--cmo-o); }
+
+.ecosystem { background: var(--cmo-surface-sunk); border-color: var(--cmo-rule); border-radius: var(--cmo-radius-md); color: var(--cmo-ink); }
+.metrics div { background: var(--cmo-surface); border-color: var(--cmo-rule); border-radius: var(--cmo-radius-md); }
+.metrics b { color: var(--cmo-ink); font-variant-numeric: tabular-nums; }
+.metrics span { color: var(--cmo-ink-muted); }
+
+fieldset, .card, #preLimitations, .progress, .report-meta, .pre-note { border-radius: var(--cmo-radius-md); }
+.card { background: var(--cmo-surface); }
+.progress, .report-meta { background: var(--cmo-brand-soft); border-color: var(--cmo-rule); }
+legend, .pre-panel summary, .pre-panel h3, #preLimitations summary { color: var(--cmo-accent); font-family: var(--cmo-font-serif); }
+
+select, input, textarea { border-color: var(--cmo-control-border); border-radius: var(--cmo-radius-sm); color: var(--cmo-ink); }
+button { border-radius: var(--cmo-radius-sm); border-color: var(--cmo-brand-strong); background: var(--cmo-brand-strong); font-weight: 600; }
+button:hover { transform: none; background: var(--cmo-ink); border-color: var(--cmo-ink); box-shadow: none; }
+.actions button:first-of-type, .hero button { background: var(--cmo-brand-strong); border-color: var(--cmo-brand-strong); color: #fff; }
+button:focus, select:focus, input:focus, textarea:focus, summary:focus-visible { outline: 3px solid var(--cmo-focus); outline-offset: 2px; }
+/* Acciones destructivas diferenciadas (antes idénticas a las acciones normales) */
+#del, #clear { background: var(--cmo-surface); color: var(--cmo-error); border-color: var(--cmo-error); }
+#del:hover, #clear:hover { background: var(--cmo-error-bg); color: var(--cmo-error); border-color: var(--cmo-error); }
+table { border-color: var(--cmo-rule); border-radius: var(--cmo-radius-sm); }
+th { background: var(--cmo-surface-sunk); }
+
+.cmo-app-footer a { color: var(--cmo-brand-strong); }
+.cmo-app-footer { max-width: 1240px; margin: 0 auto var(--cmo-space-7); padding: var(--cmo-space-5) 24px 0; font-size: var(--cmo-text-sm); color: var(--cmo-ink-muted); }
+@media (max-width: 850px) { .cmo-app-footer { padding-inline: 16px; } }
+@media print { .hero__content::before { display: none; } .hero, .panel, footer { background: #fff; } }

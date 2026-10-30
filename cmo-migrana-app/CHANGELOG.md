@@ -1,5 +1,14 @@
 # Changelog
 
+## Sin publicar — Identidad CMO Design System 0.1.0 (rama `design/cmo-ds-0.1.0`)
+
+Cambio exclusivamente visual. Sin cambios en `src/core.mjs`, `src/local-extractor.mjs` ni `src/main.js`; `MODEL_VERSION` sin cambios.
+- Copia fijada del CMO Design System 0.1.0 en `src/cmo-ds/` (manifiesto SHA-256).
+- Nuevo `src/cmo-visual.css` (tema «Estratos» sobre tokens) cargado tras `src/style.css`, que no se modifica. Colores de prioridad (`.p1/.p2/.p3`) y del preanálisis (`.pre-*`) sin cambios.
+- Accesibilidad: foco de #ffbf47 (1,6:1) a #1f3aa8 (9,4:1); borde de campos de #9aa8bb (2,4:1) a #7b8495 (≥3:1). Acciones destructivas (#del, #clear) diferenciadas visualmente.
+- Firma `<cmo-author-signature>` (desarrollo digital, algoritmo CMO-Migraña v1.0, versión 1.0.0) fuera de `#app`; favicon del ecosistema.
+- Pruebas: `test/cmo-ds.test.mjs`. Raíz de GitHub Pages (`index.html`, `404.html`) regenerada con `npm run build:pages`.
+
 ## 2.0.0 - 2026-07-21
 
 - **Eliminado por completo** el uso de cualquier servicio de inteligencia artificial generativa
