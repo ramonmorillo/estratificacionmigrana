@@ -3,9 +3,10 @@
     "dev": "python3 -m http.server 5173",
     "build": "node scripts/build.mjs",
     "test": "node --test",
-    "build:pages": "node scripts/build-pages.mjs"
+    "build:pages": "node scripts/build-pages.mjs",
+    "test:e2e": "node --test test/e2e/flow.e2e.mjs"
   },
   "private": true,
-  "version": "2.1.0",
+  "version": "2.2.0",
   "type": "module"
 }
