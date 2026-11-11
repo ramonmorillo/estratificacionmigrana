@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Pruebas, build y E2E
+    # Ubuntu 24.04 fijado: Playwright 1.56 no soporta aún ubuntu-latest (26.04).
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: cmo-migrana-app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Pruebas unitarias
+        run: npm test
+
+      - name: Build
+        run: npm run build --if-present
+
+      - name: Páginas de raíz sincronizadas (build:pages)
+        run: |
+          npm run build:pages
+          if ! git diff --exit-code -- .. || [ -n "$(git status --porcelain -- ..)" ]; then
+            echo "::error::index.html/404.html/dist no coinciden con las fuentes. Ejecute npm run build:pages y confirme los cambios."
+            exit 1
+          fi
+
+      - name: Instalar Playwright (Chromium) y axe-core
+        run: |
+          npm install --no-save --no-package-lock playwright@1.56.1 axe-core@4.10.2
+          npx playwright install --with-deps chromium
+
+      - name: Pruebas E2E (con auditoría WCAG A/AA)
+        env:
+          AXE_PATH: ${{ github.workspace }}/cmo-migrana-app/node_modules/axe-core/axe.min.js
+        run: npm run test:e2e
