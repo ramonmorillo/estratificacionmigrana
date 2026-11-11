@@ -1,6 +1,6 @@
 # Changelog
 
-## 2.2.0 — sin publicar (rama `claude/zen-pasteur-u8tn7z`)
+## 2.2.0 — 2026-11-11
 
 Informe único con PDF, estado de las actuaciones, plan de seguimiento, necesidades, resultado provisional con cota superior e importación validada. **Sin cambios en el modelo clínico**: `src/core.mjs` y `src/local-extractor.mjs` son idénticos byte a byte a la 2.1.0 (huellas SHA-256 en `test/fixtures/clinical.sha256.json`). La fecha y el estado de publicación se fijan en el commit de publicación.
 
